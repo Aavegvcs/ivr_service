@@ -15,9 +15,9 @@ class FakeSessions extends MaskingSessionRepository {
   async save(s: MaskingSession) { this.items.set(s.id, s); }
   async findById(id: string) { return this.items.get(id) ?? null; }
   async findActiveForCaller(virtualNumber: string, caller: string, now: Date) {
-    return [...this.items.values()].find(
+    return [...this.items.values()].filter(
       (s) => s.virtualNumber === virtualNumber && s.isActiveAt(now) && s.counterpartOf(caller) !== null,
-    ) ?? null;
+    ).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ?? null;
   }
 }
 class FakeVirtualNumbers extends VirtualNumberRepository {
@@ -25,13 +25,13 @@ class FakeVirtualNumbers extends VirtualNumberRepository {
   items: VirtualNumber[] = [];
   async save(n: VirtualNumber) { this.items.push(n); }
   async exists(n: string) { return this.items.some((i) => i.number === n); }
-  async findFreeFor(parties: string[], now: Date) {
+  async allocateFor(parties: string[], now: Date) {
     const busy = new Set(
       [...this.sessions.items.values()]
         .filter((s) => s.isActiveAt(now) && (parties.includes(s.partyA) || parties.includes(s.partyB)))
         .map((s) => s.virtualNumber),
     );
-    return this.items.find((i) => i.isActive && !busy.has(i.number)) ?? null;
+    return this.items.find((i) => i.isActive && !busy.has(i.number)) ?? this.items.find((i) => i.isActive) ?? null;
   }
 }
 class FakeCallLogs extends CallLogRepository {
@@ -106,7 +106,7 @@ describe('call masking', () => {
     expect((await t.resolve.execute({ callSid: 'c2', from: '9876543210', to: '08044556677' })).ok).toBe(false);
   });
 
-  it('gives different pairs sharing a person different virtual numbers', async () => {
+  it('prefers an unused number, then reuses one; the latest session wins', async () => {
     const t = setup();
     await t.addNumber.execute('08044556677');
     await t.addNumber.execute('08044556688');
@@ -115,9 +115,19 @@ describe('call masking', () => {
     if (!first.ok || !second.ok) throw new Error('setup failed');
     expect(first.value.virtualNumber).not.toBe(second.value.virtualNumber);
 
-    // pool exhausted for anyone involving 9876543210
+    // pool exhausted for this person: the number is reused instead of failing
+    t.advance(1000);
     const third = await t.create.execute({ partyA: '9876543210', partyB: '9444444444' });
-    expect(third.ok).toBe(false);
+    if (!third.ok) throw new Error('should reuse a number');
+
+    // calling the shared number connects to the latest session
+    const call = await t.resolve.execute({ callSid: 'c9', from: '9876543210', to: third.value.virtualNumber });
+    expect(call).toMatchObject({ ok: true, value: { destination: '919444444444' } });
+  });
+
+  it('fails only when the pool is empty', async () => {
+    const t = setup();
+    expect((await t.create.execute({ partyA: '9876543210', partyB: '9123456780' })).ok).toBe(false);
   });
 
   it('validates input', async () => {
@@ -134,8 +144,8 @@ describe('call masking', () => {
     await t.create.execute({ partyA: '9876543210', partyB: '9123456780' });
     await t.resolve.execute({ callSid: 'c1', from: '9876543210', to: '08044556677' });
 
-    await t.status.execute({ callSid: 'c1', status: 'completed', durationSeconds: 42 });
-    expect(t.logs.items.get('c1')).toMatchObject({ status: 'completed', durationSeconds: 42 });
+    await t.status.execute({ callSid: 'c1', status: 'completed', durationSeconds: 42, recordingUrl: 'https://rec/c1.mp3' });
+    expect(t.logs.items.get('c1')).toMatchObject({ status: 'completed', durationSeconds: 42, recordingUrl: 'https://rec/c1.mp3' });
     expect((await t.status.execute({ callSid: 'unknown', status: 'completed' })).ok).toBe(false);
   });
 });

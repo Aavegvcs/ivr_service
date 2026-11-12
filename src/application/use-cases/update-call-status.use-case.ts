@@ -9,6 +9,7 @@ export interface UpdateCallStatusInput {
   callSid?: string;
   status?: string;
   durationSeconds?: number;
+  recordingUrl?: string;
 }
 
 /** Handles Exotel's end-of-call callback and stores the outcome. */
@@ -25,7 +26,7 @@ export class UpdateCallStatusUseCase {
     const log = await this.callLogs.findByCallSid(input.callSid);
     if (!log) return fail(MaskingErrors.CallNotFound);
 
-    log.updateStatus(CallLog.parseStatus(input.status), input.durationSeconds ?? null, this.clock.now());
+    log.updateStatus(CallLog.parseStatus(input.status), input.durationSeconds ?? null, input.recordingUrl ?? null, this.clock.now());
     await this.callLogs.save(log);
     return ok(true);
   }

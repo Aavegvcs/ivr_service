@@ -35,7 +35,7 @@ export class CreateMaskingSessionUseCase {
     if (ttlMinutes <= 0) return fail(MaskingErrors.InvalidTtl);
 
     const now = this.clock.now();
-    const virtualNumber = await this.virtualNumbers.findFreeFor([partyA.value.value, partyB.value.value], now);
+    const virtualNumber = await this.virtualNumbers.allocateFor([partyA.value.value, partyB.value.value], now);
     if (!virtualNumber) return fail(MaskingErrors.NoVirtualNumberAvailable);
 
     const session = new MaskingSession({

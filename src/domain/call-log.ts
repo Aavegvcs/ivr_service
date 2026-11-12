@@ -9,6 +9,7 @@ export interface CallLogProps {
   destinationNumber: string;
   status: CallStatus;
   durationSeconds: number | null;
+  recordingUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,12 +26,14 @@ export class CallLog {
   get destinationNumber() { return this.props.destinationNumber; }
   get status() { return this.props.status; }
   get durationSeconds() { return this.props.durationSeconds; }
+  get recordingUrl() { return this.props.recordingUrl; }
   get createdAt() { return this.props.createdAt; }
   get updatedAt() { return this.props.updatedAt; }
 
-  updateStatus(status: CallStatus, durationSeconds: number | null, now: Date): void {
+  updateStatus(status: CallStatus, durationSeconds: number | null, recordingUrl: string | null, now: Date): void {
     this.props.status = status;
     this.props.durationSeconds = durationSeconds;
+    this.props.recordingUrl = recordingUrl;
     this.props.updatedAt = now;
   }
 

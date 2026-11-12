@@ -38,6 +38,7 @@ export class CallLogOrm {
   @Column({ type: 'varchar', length: 20 }) destinationNumber: string;
   @Column({ type: 'varchar', length: 20 }) status: string;
   @Column({ type: 'int', nullable: true }) durationSeconds: number | null;
+  @Column({ type: 'varchar', length: 1000, nullable: true }) recordingUrl: string | null;
   @Column({ type: 'timestamptz' }) createdAt: Date;
   @Column({ type: 'timestamptz' }) updatedAt: Date;
 }

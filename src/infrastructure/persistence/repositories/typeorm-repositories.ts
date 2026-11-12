@@ -62,8 +62,16 @@ export class TypeOrmVirtualNumberRepository extends VirtualNumberRepository {
     return this.repo.existsBy({ number });
   }
 
-  async findFreeFor(parties: string[], now: Date): Promise<VirtualNumber | null> {
-    const row = await this.repo
+  async allocateFor(parties: string[], now: Date): Promise<VirtualNumber | null> {
+    const row = (await this.findUnusedBy(parties, now)) ?? (await this.repo.findOne({
+      where: { isActive: true },
+      order: { createdAt: 'ASC' },
+    }));
+    return row ? new VirtualNumber(row.id, row.number, row.isActive, row.createdAt) : null;
+  }
+
+  private findUnusedBy(parties: string[], now: Date): Promise<VirtualNumberOrm | null> {
+    return this.repo
       .createQueryBuilder('v')
       .where('v.isActive = true')
       .andWhere(
@@ -78,7 +86,6 @@ export class TypeOrmVirtualNumberRepository extends VirtualNumberRepository {
       )
       .orderBy('v.createdAt', 'ASC')
       .getOne();
-    return row ? new VirtualNumber(row.id, row.number, row.isActive, row.createdAt) : null;
   }
 }
 
@@ -98,6 +105,7 @@ export class TypeOrmCallLogRepository extends CallLogRepository {
       destinationNumber: log.destinationNumber,
       status: log.status,
       durationSeconds: log.durationSeconds,
+      recordingUrl: log.recordingUrl,
       createdAt: log.createdAt,
       updatedAt: log.updatedAt,
     });

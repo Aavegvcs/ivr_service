@@ -65,6 +65,7 @@ export class ExotelWebhookController {
         callSid: pick(query, body, 'CallSid'),
         status: pick(query, body, 'Status', 'CallStatus'),
         durationSeconds: Number.isFinite(duration) ? duration : undefined,
+        recordingUrl: pick(query, body, 'RecordingUrl'),
       }),
     );
     return { received: true };

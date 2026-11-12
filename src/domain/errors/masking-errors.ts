@@ -8,7 +8,7 @@ export const MaskingErrors = {
   SessionNotFound: AppError.notFound('Session.NotFound', 'The masking session was not found.'),
   NoVirtualNumberAvailable: AppError.conflict(
     'VirtualNumber.NoneAvailable',
-    'No virtual number is free for these parties. Add more numbers to the pool.',
+    'The virtual number pool is empty. Add a number first.',
   ),
   VirtualNumberExists: AppError.conflict('VirtualNumber.Exists', 'This virtual number is already in the pool.'),
   NoActiveSessionForCall: AppError.notFound(

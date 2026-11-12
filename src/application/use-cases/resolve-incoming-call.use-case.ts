@@ -66,6 +66,7 @@ export class ResolveIncomingCallUseCase {
         destinationNumber: destination,
         status: 'initiated',
         durationSeconds: null,
+        recordingUrl: null,
         createdAt: now,
         updatedAt: now,
       }),

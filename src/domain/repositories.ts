@@ -17,10 +17,11 @@ export abstract class VirtualNumberRepository {
   abstract save(number: VirtualNumber): Promise<void>;
   abstract exists(number: string): Promise<boolean>;
   /**
-   * A pool number not currently used by an active session that involves any of `parties`.
-   * This guarantees that a caller never maps to two different counterparts on one number.
+   * Picks a pool number for a new session. Prefers one that no active session of `parties` uses;
+   * if every number is taken, reuses any active one. When a person has several sessions on the
+   * same number, calls go to their latest session.
    */
-  abstract findFreeFor(parties: string[], now: Date): Promise<VirtualNumber | null>;
+  abstract allocateFor(parties: string[], now: Date): Promise<VirtualNumber | null>;
 }
 
 export abstract class CallLogRepository {
