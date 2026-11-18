@@ -1,42 +1,44 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { MongooseModule } from '@nestjs/mongoose';
 import { DateTimeProvider, IdGenerator, IvrSettings } from '../application/ports/ports';
 import { CallLogRepository, MaskingSessionRepository, VirtualNumberRepository } from '../domain/repositories';
 import { EnvIvrSettings } from './config/env';
-import { CallLogOrm, MaskingSessionOrm, VirtualNumberOrm } from './persistence/entities/orm-entities';
 import {
-  TypeOrmCallLogRepository,
-  TypeOrmMaskingSessionRepository,
-  TypeOrmVirtualNumberRepository,
-} from './persistence/repositories/typeorm-repositories';
+  MongoCallLogRepository,
+  MongoMaskingSessionRepository,
+  MongoVirtualNumberRepository,
+} from './persistence/repositories/mongo-repositories';
+import {
+  CallLogDoc,
+  CallLogSchema,
+  MaskingSessionDoc,
+  MaskingSessionSchema,
+  VirtualNumberDoc,
+  VirtualNumberSchema,
+} from './persistence/schemas/mongo-schemas';
 import { SystemDateTimeProvider, UuidGenerator } from './services';
-
-const entities = [VirtualNumberOrm, MaskingSessionOrm, CallLogOrm];
 
 /** Binds every port (abstract class) to its concrete implementation. */
 @Module({
   imports: [
-    TypeOrmModule.forRootAsync({
+    MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        type: 'postgres' as const,
-        host: config.get<string>('DB_HOST'),
-        port: Number(config.get('DB_PORT', 5432)),
-        username: config.get<string>('DB_USER'),
-        password: config.get<string>('DB_PASSWORD'),
-        database: config.get<string>('DB_NAME'),
-        entities,
-        // Dev convenience only. Use migrations in production.
-        synchronize: String(config.get('DB_SYNCHRONIZE', 'false')) === 'true',
+        uri: config.getOrThrow<string>('MONGO_URI'),
+        dbName: config.get<string>('MONGO_DB_NAME', 'ivrmicroserivce'),
       }),
     }),
-    TypeOrmModule.forFeature(entities),
+    MongooseModule.forFeature([
+      { name: VirtualNumberDoc.name, schema: VirtualNumberSchema },
+      { name: MaskingSessionDoc.name, schema: MaskingSessionSchema },
+      { name: CallLogDoc.name, schema: CallLogSchema },
+    ]),
   ],
   providers: [
-    { provide: MaskingSessionRepository, useClass: TypeOrmMaskingSessionRepository },
-    { provide: VirtualNumberRepository, useClass: TypeOrmVirtualNumberRepository },
-    { provide: CallLogRepository, useClass: TypeOrmCallLogRepository },
+    { provide: MaskingSessionRepository, useClass: MongoMaskingSessionRepository },
+    { provide: VirtualNumberRepository, useClass: MongoVirtualNumberRepository },
+    { provide: CallLogRepository, useClass: MongoCallLogRepository },
     { provide: DateTimeProvider, useClass: SystemDateTimeProvider },
     { provide: IdGenerator, useClass: UuidGenerator },
     { provide: IvrSettings, useClass: EnvIvrSettings },

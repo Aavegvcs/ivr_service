@@ -6,6 +6,10 @@ export interface MaskingSessionProps {
   partyB: string;
   virtualNumber: string;
   referenceId: string | null;
+  /** Trip the call belongs to (sent by the calling service). */
+  tripId: string;
+  /** Customer/tenant the session belongs to. */
+  tenantName: string;
   status: SessionStatus;
   expiresAt: Date;
   createdAt: Date;
@@ -24,6 +28,8 @@ export class MaskingSession {
   get partyB() { return this.props.partyB; }
   get virtualNumber() { return this.props.virtualNumber; }
   get referenceId() { return this.props.referenceId; }
+  get tripId() { return this.props.tripId; }
+  get tenantName() { return this.props.tenantName; }
   get status() { return this.props.status; }
   get expiresAt() { return this.props.expiresAt; }
   get createdAt() { return this.props.createdAt; }

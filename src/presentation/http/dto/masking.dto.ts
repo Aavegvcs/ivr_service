@@ -10,6 +10,12 @@ export class CreateMaskingSessionDto {
   @ApiProperty({ example: '9123456780', description: 'Real number of the second party (e.g. driver).' })
   @IsString() @IsNotEmpty() partyB: string;
 
+  @ApiProperty({ example: '6651', description: 'Trip id from the calling service. Stored on the session and every call log.' })
+  @IsString() @IsNotEmpty() @MaxLength(100) tripId: string;
+
+  @ApiProperty({ example: 'Acme Corp', description: 'Tenant/customer name. Stored on the session and every call log.' })
+  @IsString() @IsNotEmpty() @MaxLength(100) tenantName: string;
+
   @ApiPropertyOptional({ example: 60, description: 'Session lifetime. Defaults to SESSION_TTL_MINUTES.' })
   @IsOptional() @IsInt() @Min(1) @Max(1440) ttlMinutes?: number;
 
@@ -28,6 +34,8 @@ export class MaskingSessionResponse {
   @ApiProperty() partyB: string;
   @ApiProperty({ description: 'The number both parties dial to reach each other.' }) virtualNumber: string;
   @ApiProperty({ nullable: true }) referenceId: string | null;
+  @ApiProperty() tripId: string;
+  @ApiProperty() tenantName: string;
   @ApiProperty({ enum: ['active', 'ended'] }) status: string;
   @ApiProperty() expiresAt: Date;
   @ApiProperty() createdAt: Date;
@@ -39,6 +47,8 @@ export class MaskingSessionResponse {
       partyB: s.partyB,
       virtualNumber: s.virtualNumber,
       referenceId: s.referenceId,
+      tripId: s.tripId,
+      tenantName: s.tenantName,
       status: s.status,
       expiresAt: s.expiresAt,
       createdAt: s.createdAt,

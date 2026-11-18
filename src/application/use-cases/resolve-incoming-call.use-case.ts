@@ -21,6 +21,7 @@ export interface CallRouting {
   callerId: string;
   record: boolean;
   maxDurationSeconds: number;
+  ringTimeoutSeconds: number;
 }
 
 /**
@@ -61,11 +62,14 @@ export class ResolveIncomingCallUseCase {
         id: this.ids.newId(),
         callSid: input.callSid,
         sessionId: session.id,
+        tripId: session.tripId,
+        tenantName: session.tenantName,
         virtualNumber: virtual.value.value,
         callerNumber: caller.value.value,
         destinationNumber: destination,
         status: 'initiated',
         durationSeconds: null,
+        callbacks: [],
         recordingUrl: null,
         createdAt: now,
         updatedAt: now,
@@ -77,6 +81,7 @@ export class ResolveIncomingCallUseCase {
       callerId: virtual.value.value,
       record: this.settings.recordCalls,
       maxDurationSeconds: this.settings.maxCallDurationSeconds,
+      ringTimeoutSeconds: this.settings.ringTimeoutSeconds,
     });
   }
 }

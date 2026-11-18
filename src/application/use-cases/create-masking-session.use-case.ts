@@ -11,6 +11,8 @@ export interface CreateMaskingSessionInput {
   partyB: string;
   ttlMinutes?: number;
   referenceId?: string;
+  tripId: string;
+  tenantName: string;
 }
 
 /** Links two real numbers to a free virtual number. */
@@ -44,6 +46,8 @@ export class CreateMaskingSessionUseCase {
       partyB: partyB.value.value,
       virtualNumber: virtualNumber.number,
       referenceId: input.referenceId ?? null,
+      tripId: input.tripId,
+      tenantName: input.tenantName,
       status: 'active',
       expiresAt: new Date(now.getTime() + ttlMinutes * 60_000),
       createdAt: now,
