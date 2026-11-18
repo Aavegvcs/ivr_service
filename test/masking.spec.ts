@@ -44,6 +44,7 @@ const settings: IvrSettings = {
   defaultCountryCode: '91',
   defaultSessionTtlMinutes: 60,
   maxCallDurationSeconds: 3600,
+  ringTimeoutSeconds: 20,
   recordCalls: false,
 };
 
@@ -70,7 +71,7 @@ describe('call masking', () => {
   it('connects each party to the other, showing only the virtual number', async () => {
     const t = setup();
     await t.addNumber.execute('08044556677');
-    const created = await t.create.execute({ partyA: '9876543210', partyB: '9123456780' });
+    const created = await t.create.execute({ tripId: 'trip-1', tenantName: 'Acme Corp', partyA: '9876543210', partyB: '9123456780' });
     expect(created.ok).toBe(true);
 
     // A rings the virtual number (Exotel formats numbers its own way) -> B is dialled
@@ -85,7 +86,7 @@ describe('call masking', () => {
   it('rejects callers who are not part of any session', async () => {
     const t = setup();
     await t.addNumber.execute('08044556677');
-    await t.create.execute({ partyA: '9876543210', partyB: '9123456780' });
+    await t.create.execute({ tripId: 'trip-1', tenantName: 'Acme Corp', partyA: '9876543210', partyB: '9123456780' });
 
     const r = await t.resolve.execute({ callSid: 'c1', from: '9000000000', to: '08044556677' });
     expect(r.ok).toBe(false);
@@ -94,13 +95,13 @@ describe('call masking', () => {
   it('stops routing after the session expires or is ended', async () => {
     const t = setup();
     await t.addNumber.execute('08044556677');
-    const created = await t.create.execute({ partyA: '9876543210', partyB: '9123456780', ttlMinutes: 5 });
+    const created = await t.create.execute({ tripId: 'trip-1', tenantName: 'Acme Corp', partyA: '9876543210', partyB: '9123456780', ttlMinutes: 5 });
     if (!created.ok) throw new Error('setup failed');
 
     t.advance(6 * 60_000);
     expect((await t.resolve.execute({ callSid: 'c1', from: '9876543210', to: '08044556677' })).ok).toBe(false);
 
-    const fresh = await t.create.execute({ partyA: '9876543210', partyB: '9123456780' });
+    const fresh = await t.create.execute({ tripId: 'trip-1', tenantName: 'Acme Corp', partyA: '9876543210', partyB: '9123456780' });
     if (!fresh.ok) throw new Error('setup failed');
     await t.end.execute(fresh.value.id);
     expect((await t.resolve.execute({ callSid: 'c2', from: '9876543210', to: '08044556677' })).ok).toBe(false);
@@ -110,14 +111,14 @@ describe('call masking', () => {
     const t = setup();
     await t.addNumber.execute('08044556677');
     await t.addNumber.execute('08044556688');
-    const first = await t.create.execute({ partyA: '9876543210', partyB: '9123456780' });
-    const second = await t.create.execute({ partyA: '9876543210', partyB: '9555555555' });
+    const first = await t.create.execute({ tripId: 'trip-1', tenantName: 'Acme Corp', partyA: '9876543210', partyB: '9123456780' });
+    const second = await t.create.execute({ tripId: 'trip-1', tenantName: 'Acme Corp', partyA: '9876543210', partyB: '9555555555' });
     if (!first.ok || !second.ok) throw new Error('setup failed');
     expect(first.value.virtualNumber).not.toBe(second.value.virtualNumber);
 
     // pool exhausted for this person: the number is reused instead of failing
     t.advance(1000);
-    const third = await t.create.execute({ partyA: '9876543210', partyB: '9444444444' });
+    const third = await t.create.execute({ tripId: 'trip-1', tenantName: 'Acme Corp', partyA: '9876543210', partyB: '9444444444' });
     if (!third.ok) throw new Error('should reuse a number');
 
     // calling the shared number connects to the latest session
@@ -127,13 +128,13 @@ describe('call masking', () => {
 
   it('fails only when the pool is empty', async () => {
     const t = setup();
-    expect((await t.create.execute({ partyA: '9876543210', partyB: '9123456780' })).ok).toBe(false);
+    expect((await t.create.execute({ tripId: 'trip-1', tenantName: 'Acme Corp', partyA: '9876543210', partyB: '9123456780' })).ok).toBe(false);
   });
 
   it('validates input', async () => {
     const t = setup();
-    expect((await t.create.execute({ partyA: '123', partyB: '9123456780' })).ok).toBe(false);
-    expect((await t.create.execute({ partyA: '9876543210', partyB: '+919876543210' })).ok).toBe(false);
+    expect((await t.create.execute({ tripId: 'trip-1', tenantName: 'Acme Corp', partyA: '123', partyB: '9123456780' })).ok).toBe(false);
+    expect((await t.create.execute({ tripId: 'trip-1', tenantName: 'Acme Corp', partyA: '9876543210', partyB: '+919876543210' })).ok).toBe(false);
     expect((await t.addNumber.execute('08044556677')).ok).toBe(true);
     expect((await t.addNumber.execute('+918044556677')).ok).toBe(false); // duplicate
   });
@@ -141,11 +142,36 @@ describe('call masking', () => {
   it('records the call outcome from the status callback', async () => {
     const t = setup();
     await t.addNumber.execute('08044556677');
-    await t.create.execute({ partyA: '9876543210', partyB: '9123456780' });
+    await t.create.execute({ tripId: 'trip-1', tenantName: 'Acme Corp', partyA: '9876543210', partyB: '9123456780' });
     await t.resolve.execute({ callSid: 'c1', from: '9876543210', to: '08044556677' });
 
     await t.status.execute({ callSid: 'c1', status: 'completed', durationSeconds: 42, recordingUrl: 'https://rec/c1.mp3' });
     expect(t.logs.items.get('c1')).toMatchObject({ status: 'completed', durationSeconds: 42, recordingUrl: 'https://rec/c1.mp3' });
     expect((await t.status.execute({ callSid: 'unknown', status: 'completed' })).ok).toBe(false);
+  });
+
+  it('keeps every raw provider callback on the call log', async () => {
+    const t = setup();
+    await t.addNumber.execute('08044556677');
+    await t.create.execute({ tripId: 'trip-1', tenantName: 'Acme Corp', partyA: '9876543210', partyB: '9123456780' });
+    await t.resolve.execute({ callSid: 'c1', from: '9876543210', to: '08044556677' });
+
+    await t.status.execute({ callSid: 'c1', status: 'no-answer', callback: { route: 'passthru/fail', params: { CallSid: 'c1', Foo: 'bar' } } });
+    await t.status.execute({ callSid: 'c1', status: 'no-answer', callback: { route: 'status', params: { CallSid: 'c1' } } });
+
+    const callbacks = t.logs.items.get('c1')!.callbacks;
+    expect(callbacks.map((c) => c.route)).toEqual(['passthru/fail', 'status']);
+    expect(callbacks[0].params).toEqual({ CallSid: 'c1', Foo: 'bar' });
+  });
+
+
+  it('stores tripId and tenantName on the session and copies them to every call log', async () => {
+    const t = setup();
+    await t.addNumber.execute('08044556677');
+    const created = await t.create.execute({ tripId: '6651', tenantName: 'Acme Corp', partyA: '9876543210', partyB: '9123456780' });
+    expect(created).toMatchObject({ ok: true, value: { tripId: '6651', tenantName: 'Acme Corp' } });
+
+    await t.resolve.execute({ callSid: 'c1', from: '9876543210', to: '08044556677' });
+    expect(t.logs.items.get('c1')).toMatchObject({ tripId: '6651', tenantName: 'Acme Corp' });
   });
 });

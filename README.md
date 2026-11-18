@@ -1,6 +1,6 @@
 # IVR Service – Call Masking
 
-NestJS + TypeScript microservice that lets two people call each other **without seeing each other's real number**. Telephony provider: Exotel. Database: PostgreSQL (TypeORM).
+NestJS + TypeScript microservice that lets two people call each other **without seeing each other's real number**. Telephony provider: Exotel. Database: MongoDB (Mongoose).
 
 ## How masking works
 
@@ -18,7 +18,7 @@ Sessions expire after a TTL or can be ended early (`DELETE /api/v1/masking-sessi
 src/
   domain/          Pure TypeScript: entities, PhoneNumber, errors, repository ports. No framework imports.
   application/     Use cases (one class per action) + ports (clock, id generator, settings).
-  infrastructure/  TypeORM entities/repositories, env settings, DI bindings for the ports.
+  infrastructure/  MongoDB (Mongoose) schemas and repositories, env settings, DI bindings for the ports.
   presentation/    HTTP: controllers, DTOs, guards, error filter.
   shared/          Result pattern (same idea as the Identity API).
 test/              Use-case tests with in-memory fakes (no DB needed).
@@ -30,7 +30,6 @@ Use cases return `Result<T>` instead of throwing; controllers call `unwrap()` to
 
 ```bash
 cp .env.example .env
-docker compose up -d        # PostgreSQL
 npm install
 npm run start:dev
 npm test
@@ -57,7 +56,7 @@ Swagger: http://localhost:5200/api-docs (needs Node 20+).
 
 ## Notes / known limits
 
-- `DB_SYNCHRONIZE=true` auto-creates tables for dev. Use migrations in production.
+- MongoDB collections (`virtual_numbers`, `masking_sessions`, `call_logs`) and their indexes are created automatically on first start. Set `MONGO_URI` (and `MONGO_DB_NAME`) in `.env`; the Atlas cluster must allow your IP.
 - Pinned to NestJS 11 / TypeScript 5: NestJS 12 is ESM-only and needs a newer Node than 20.9.
 - Not included (out of scope): IVR agent flows and outbound click-to-call.
 - Virtual-number allocation is not race-proof: two simultaneous requests for overlapping parties could be given the same number. Add a lock or DB constraint if that matters at your volume.

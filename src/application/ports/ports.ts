@@ -11,5 +11,6 @@ export abstract class IvrSettings {
   abstract readonly defaultCountryCode: string;
   abstract readonly defaultSessionTtlMinutes: number;
   abstract readonly maxCallDurationSeconds: number;
+  abstract readonly ringTimeoutSeconds: number;
   abstract readonly recordCalls: boolean;
 }
