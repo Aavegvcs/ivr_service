@@ -11,5 +11,6 @@ ENV NODE_ENV=production
 COPY package*.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
+COPY .env ./.env
 EXPOSE 5200
 CMD ["node", "dist/main.js"]
