@@ -45,15 +45,15 @@ export class ResolveIncomingCallUseCase {
 
     const caller = PhoneNumber.create(input.from, 'from', this.settings.defaultCountryCode);
     if (!caller.ok) return fail(...caller.errors);
-    const virtual = PhoneNumber.create(input.to, 'to', this.settings.defaultCountryCode);
-    if (!virtual.ok) return fail(...virtual.errors);
+    // Exactly what Exotel sent as CallTo; it must equal the virtual number stored in the pool.
+    const virtual = input.to.trim();
 
     const now = this.clock.now();
-    const session = await this.sessions.findActiveForCaller(virtual.value.value, caller.value.value, now);
+    const session = await this.sessions.findActiveForCaller(virtual, caller.value.value, now);
     const destination = session?.isActiveAt(now) ? session.counterpartOf(caller.value.value) : null;
 
     if (!session || !destination) {
-      this.logger.warn(`No active session for call ${input.callSid} on virtual number ${virtual.value.value}`);
+      this.logger.warn(`No active session for call ${input.callSid} on virtual number ${virtual}`);
       return fail(MaskingErrors.NoActiveSessionForCall);
     }
 
@@ -64,7 +64,7 @@ export class ResolveIncomingCallUseCase {
         sessionId: session.id,
         tripId: session.tripId,
         tenantName: session.tenantName,
-        virtualNumber: virtual.value.value,
+        virtualNumber: virtual,
         callerNumber: caller.value.value,
         destinationNumber: destination,
         status: 'initiated',
@@ -78,10 +78,19 @@ export class ResolveIncomingCallUseCase {
 
     return ok({
       destination,
-      callerId: virtual.value.value,
+      callerId: callerIdFor(virtual, this.settings.defaultCountryCode),
       record: this.settings.recordCalls,
       maxDurationSeconds: this.settings.maxCallDurationSeconds,
       ringTimeoutSeconds: this.settings.ringTimeoutSeconds,
     });
   }
+}
+
+/**
+ * Caller ID sent back to Exotel (shown to the callee): the virtual number with country code,
+ * as in the calls that worked (+918047285000). Only this reply is reformatted; nothing stored is changed.
+ */
+function callerIdFor(virtual: string, defaultCountryCode: string): string {
+  const phone = PhoneNumber.create(virtual, 'to', defaultCountryCode);
+  return phone.ok ? phone.value.value : virtual.replace(/D/g, '');
 }

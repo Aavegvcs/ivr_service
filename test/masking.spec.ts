@@ -59,7 +59,7 @@ function setup() {
   return {
     sessions, numbers, logs,
     advance: (ms: number) => { current = new Date(current.getTime() + ms); },
-    addNumber: new AddVirtualNumberUseCase(numbers, clock, ids, settings),
+    addNumber: new AddVirtualNumberUseCase(numbers, clock, ids),
     create: new CreateMaskingSessionUseCase(sessions, numbers, clock, ids, settings),
     end: new EndMaskingSessionUseCase(sessions),
     resolve: new ResolveIncomingCallUseCase(sessions, logs, clock, ids, settings),
@@ -136,7 +136,7 @@ describe('call masking', () => {
     expect((await t.create.execute({ tripId: 'trip-1', tenantName: 'Acme Corp', partyA: '123', partyB: '9123456780' })).ok).toBe(false);
     expect((await t.create.execute({ tripId: 'trip-1', tenantName: 'Acme Corp', partyA: '9876543210', partyB: '+919876543210' })).ok).toBe(false);
     expect((await t.addNumber.execute('08044556677')).ok).toBe(true);
-    expect((await t.addNumber.execute('+918044556677')).ok).toBe(false); // duplicate
+    expect((await t.addNumber.execute('08044556677')).ok).toBe(false); // exact duplicate
   });
 
   it('records the call outcome from the status callback', async () => {
@@ -173,5 +173,23 @@ describe('call masking', () => {
 
     await t.resolve.execute({ callSid: 'c1', from: '9876543210', to: '08044556677' });
     expect(t.logs.items.get('c1')).toMatchObject({ tripId: '6651', tenantName: 'Acme Corp' });
+  });
+
+  it('stores the virtual number exactly as entered, copies it to the session, and matches Exotel CallTo exactly', async () => {
+    const t = setup();
+    const added = await t.addNumber.execute('08047285000');
+    expect(added).toMatchObject({ ok: true, value: { number: '08047285000' } });
+
+    const created = await t.create.execute({ tripId: 't1', tenantName: 'Acme Corp', partyA: '9810654125', partyB: '7267033009' });
+    expect(created).toMatchObject({ ok: true, value: { virtualNumber: '08047285000' } });
+
+    // Exotel sends CallTo exactly as stored -> routes to the driver; the caller ID shown keeps the +91 form
+    const call = await t.resolve.execute({ callSid: 'c1', from: '09810654125', to: '08047285000' });
+    expect(call).toMatchObject({ ok: true, value: { destination: '917267033009', callerId: '918047285000' } });
+    expect(t.logs.items.get('c1')).toMatchObject({ virtualNumber: '08047285000' });
+
+    // a different spelling of the same number is NOT treated as the stored one
+    const other = await t.resolve.execute({ callSid: 'c2', from: '09810654125', to: '+918047285000' });
+    expect(other.ok).toBe(false);
   });
 });
